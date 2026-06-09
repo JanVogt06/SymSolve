@@ -49,10 +49,21 @@ export class Parser {
    *
    * @param input - The raw expression string, e.g. "3 + 4 * x".
    * @returns The root Expression node of the parsed AST.
-   * @throws If the input contains syntax errors.
+   * @throws If the input contains syntax errors or has leftover tokens.
    */
   static parse(input: string): Expression {
-    return new Parser(input).parseExpression();
+    /** The parser instance for this single parse run. */
+    const parser = new Parser(input);
+
+    /** The parsed expression tree. */
+    const expression = parser.parseExpression();
+
+    // The whole input must be consumed. Any leftover token (e.g. the "4" in
+    // "3 4", or the stray ")" in "1 + 2)") is a syntax error rather than
+    // something to silently ignore.
+    parser.expect("End");
+
+    return expression;
   }
 
   /**

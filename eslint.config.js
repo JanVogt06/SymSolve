@@ -44,12 +44,15 @@ export default defineConfig([
   // Applied only to .ts files in src/core/ (the math engine).
   // React components (.tsx) are excluded — JSDoc is less common there and
   // prop types are already documented via TypeScript interfaces.
+  // Test files (*.test.ts) are excluded too — test helpers are not part of the
+  // public API and read better without @param/@returns boilerplate.
   //
   // Note: @param and @returns type annotations (e.g. {string}) are NOT required
   // here because TypeScript already carries that information. Duplicating types
   // in JSDoc would only create drift when types change.
   {
     files: ["src/core/**/*.ts"],
+    ignores: ["src/core/**/*.{test,spec}.ts"],
     plugins: { jsdoc },
     settings: {
       // Tell eslint-plugin-jsdoc that we're working in a TypeScript project.

@@ -1,0 +1,4 @@
+# Style checks on staged files (Prettier + ESLint, auto-fix),
+# then the full test suite. Mirrors the CI pipeline locally.
+npx lint-staged
+npm test
