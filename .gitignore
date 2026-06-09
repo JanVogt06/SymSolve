@@ -12,6 +12,9 @@ dist
 dist-ssr
 *.local
 
+# Project documentation (local only)
+ARCHITECTURE.md
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json
