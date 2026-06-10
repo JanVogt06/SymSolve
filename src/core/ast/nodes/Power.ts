@@ -86,8 +86,7 @@ export class Power extends Expression {
    */
   private baseNeedsParentheses(): boolean {
     if (this.base instanceof NumberNode) return this.base.value < 0;
-    if (this.base instanceof Variable) return false;
-    return true;
+    return !(this.base instanceof Variable);
   }
 
   /**
@@ -98,7 +97,6 @@ export class Power extends Expression {
    */
   private exponentNeedsParentheses(): boolean {
     if (this.exponent instanceof NumberNode) return this.exponent.value < 0;
-    if (this.exponent instanceof Variable) return false;
-    return true;
+    return !(this.exponent instanceof Variable);
   }
 }
