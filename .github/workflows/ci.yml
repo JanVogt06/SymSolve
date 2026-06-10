@@ -13,6 +13,13 @@ permissions:
   pages: write
   id-token: write
 
+# Run JavaScript actions on Node 24 already. Some GitHub Pages actions still
+# bundle Node 20 internally (e.g. upload-pages-artifact → upload-artifact),
+# which is deprecated; this opt-in silences the warning and is mandatory from
+# 2026-06-16 onward.
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
 jobs:
   check:
     name: Type-check & Lint
