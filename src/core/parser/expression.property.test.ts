@@ -80,21 +80,88 @@ const exponent: fc.Arbitrary<Expression> = fc.oneof(
   fc.integer({ min: 1, max: 3 }).map((value) => new UnaryMinus(new NumberNode(value)))
 );
 
-/** A bounded-depth arbitrary that builds real Expression ASTs. */
-const expression: fc.Arbitrary<Expression> = fc.letrec<{ node: Expression }>((tie) => ({
-  node: fc.oneof(
-    { depthSize: "medium", withCrossShrink: true },
+/**
+ * A bounded-depth arbitrary that builds real Expression ASTs **in the same
+ * shape the parser produces**: additive and multiplicative runs are folded to
+ * the LEFT, mirroring the recursive-descent grammar (expression → term →
+ * factor → power → primary).
+ *
+ * Why the careful shape: if the generated tree were associated differently from
+ * what `Parser.parse` rebuilds (e.g. a * (b * c) vs (a * b) * c), the two would
+ * be mathematically equal but evaluate in a different floating-point order. That
+ * tiny difference is normally negligible, but a sensitive function such as sin
+ * applied to a large argument can amplify it past the comparison tolerance and
+ * cause flaky failures. Generating parser-shaped trees makes
+ * `parse(ast.toString())` structurally identical to `ast`, so the numeric
+ * checks below are reassociation-free while still catching real grouping bugs.
+ */
+const expression: fc.Arbitrary<Expression> = fc.letrec<{
+  group: Expression;
+  base: Expression;
+  power: Expression;
+  unaryOperand: Expression;
+  factor: Expression;
+  term: Expression;
+  expression: Expression;
+}>((tie) => ({
+  // A parenthesised sub-expression. It only ever appears wrapped by a strictly
+  // higher-precedence construct (a power's base, a unary minus, or a function
+  // argument) — never as a bare operand — so toString reproduces it exactly and
+  // re-parsing yields the identical tree.
+  group: tie("expression"),
+
+  // Base of an exponentiation: an atom, a parenthesised group, or a function.
+  base: fc.oneof(
+    { depthSize: "xsmall", withCrossShrink: true },
     leaf,
+    tie("group"),
     fc
-      .tuple(fc.constantFrom<"+" | "-" | "*" | "/">("+", "-", "*", "/"), tie("node"), tie("node"))
-      .map(([operator, left, right]) => new BinaryOperation(operator, left, right)),
-    fc.tuple(tie("node"), exponent).map(([base, exp]) => new Power(base, exp)),
-    tie("node").map((operand) => new UnaryMinus(operand)),
-    fc
-      .tuple(fc.constantFrom(...FUNCTION_CONSTRUCTORS), tie("node"))
+      .tuple(fc.constantFrom(...FUNCTION_CONSTRUCTORS), tie("expression"))
       .map(([Func, argument]) => new Func(argument))
   ),
-})).node;
+
+  power: fc.oneof(
+    { depthSize: "xsmall", withCrossShrink: true },
+    leaf,
+    fc
+      .tuple(fc.constantFrom(...FUNCTION_CONSTRUCTORS), tie("expression"))
+      .map(([Func, argument]) => new Func(argument)),
+    fc.tuple(tie("base"), exponent).map(([base, exp]) => new Power(base, exp))
+  ),
+
+  unaryOperand: fc.oneof(
+    { depthSize: "xsmall", withCrossShrink: true },
+    leaf,
+    tie("group"),
+    tie("power"),
+    fc
+      .tuple(fc.constantFrom(...FUNCTION_CONSTRUCTORS), tie("expression"))
+      .map(([Func, argument]) => new Func(argument))
+  ),
+
+  factor: fc.oneof(
+    tie("power"),
+    tie("unaryOperand").map((operand) => new UnaryMinus(operand))
+  ),
+
+  term: fc
+    .tuple(
+      tie("factor"),
+      fc.array(fc.tuple(fc.constantFrom<"*" | "/">("*", "/"), tie("factor")), { maxLength: 1 })
+    )
+    .map(([first, rest]) =>
+      rest.reduce((left, [operator, right]) => new BinaryOperation(operator, left, right), first)
+    ),
+
+  expression: fc
+    .tuple(
+      tie("term"),
+      fc.array(fc.tuple(fc.constantFrom<"+" | "-">("+", "-"), tie("term")), { maxLength: 1 })
+    )
+    .map(([first, rest]) =>
+      rest.reduce((left, [operator, right]) => new BinaryOperation(operator, left, right), first)
+    ),
+})).expression;
 
 /** A random variable environment for x, y and z. */
 const environment = fc.record({
