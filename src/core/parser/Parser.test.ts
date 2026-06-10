@@ -5,6 +5,12 @@ import { Variable } from "../ast/nodes/Variable";
 import { BinaryOperation } from "../ast/nodes/BinaryOperation";
 import { Power } from "../ast/nodes/Power";
 import { UnaryMinus } from "../ast/nodes/UnaryMinus";
+import { Sine } from "../ast/nodes/functions/Sine";
+import { Cosine } from "../ast/nodes/functions/Cosine";
+import { Tangent } from "../ast/nodes/functions/Tangent";
+import { ArcSine } from "../ast/nodes/functions/ArcSine";
+import { ArcCosine } from "../ast/nodes/functions/ArcCosine";
+import { ArcTangent } from "../ast/nodes/functions/ArcTangent";
 
 /**
  * Parses an input string and evaluates the resulting AST in the given environment.
@@ -165,6 +171,62 @@ describe("Parser", () => {
 
     it("handles nested parentheses", () => {
       expect(evaluate("(((1 + 1)))")).toBe(2);
+    });
+  });
+
+  describe("function calls", () => {
+    it.each([
+      ["sin", Sine],
+      ["cos", Cosine],
+      ["tan", Tangent],
+      ["arcsin", ArcSine],
+      ["arccos", ArcCosine],
+      ["arctan", ArcTangent],
+    ])("parses %s(...) into the matching node", (name, NodeClass) => {
+      expect(Parser.parse(`${name}(0)`)).toBeInstanceOf(NodeClass);
+    });
+
+    it.each([
+      ["asin", ArcSine],
+      ["acos", ArcCosine],
+      ["atan", ArcTangent],
+    ])("accepts the short alias %s as the same node", (alias, NodeClass) => {
+      expect(Parser.parse(`${alias}(0)`)).toBeInstanceOf(NodeClass);
+    });
+
+    it("evaluates sin(0) = 0 and cos(0) = 1", () => {
+      expect(evaluate("sin(0)")).toBe(0);
+      expect(evaluate("cos(0)")).toBe(1);
+    });
+
+    it("satisfies the Pythagorean identity sin(x)^2 + cos(x)^2 = 1", () => {
+      expect(evaluate("sin(x)^2 + cos(x)^2", { x: 1.2345 })).toBeCloseTo(1);
+    });
+
+    it("parses a nested function argument", () => {
+      expect(evaluate("sin(cos(0))")).toBe(Math.sin(1));
+    });
+
+    it("binds a function call as a tight primary: 2 * sin(0) + 1 = 1", () => {
+      expect(evaluate("2 * sin(0) + 1")).toBe(1);
+    });
+
+    it("allows a function call as the base of a power: cos(0)^2 = 1", () => {
+      expect(evaluate("cos(0)^2")).toBe(1);
+    });
+
+    it("treats a function name without parentheses as an ordinary variable", () => {
+      const ast = Parser.parse("sin");
+      expect(ast).toBeInstanceOf(Variable);
+      expect((ast as Variable).name).toBe("sin");
+    });
+
+    it("throws on an empty argument list, e.g. 'sin()'", () => {
+      expect(() => Parser.parse("sin()")).toThrow();
+    });
+
+    it("throws on a missing closing parenthesis, e.g. 'sin(1'", () => {
+      expect(() => Parser.parse("sin(1")).toThrow();
     });
   });
 

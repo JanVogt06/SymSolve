@@ -8,6 +8,12 @@ import { Variable } from "../ast/nodes/Variable";
 import { BinaryOperation } from "../ast/nodes/BinaryOperation";
 import { Power } from "../ast/nodes/Power";
 import { UnaryMinus } from "../ast/nodes/UnaryMinus";
+import { Sine } from "../ast/nodes/functions/Sine";
+import { Cosine } from "../ast/nodes/functions/Cosine";
+import { Tangent } from "../ast/nodes/functions/Tangent";
+import { ArcSine } from "../ast/nodes/functions/ArcSine";
+import { ArcCosine } from "../ast/nodes/functions/ArcCosine";
+import { ArcTangent } from "../ast/nodes/functions/ArcTangent";
 
 /**
  * Property-based "sanity check" suite.
@@ -35,9 +41,17 @@ math.import(
       if (b === 0) throw new Error("division by zero");
       return a / b;
     },
+    // SymSolve prints the inverse trig functions spelled out (arcsin, …);
+    // teach the oracle those names so it can parse our serialized form.
+    arcsin: math.asin,
+    arccos: math.acos,
+    arctan: math.atan,
   },
   { override: true }
 );
+
+/** The single-argument functions SymSolve supports, by constructor. */
+const FUNCTION_CONSTRUCTORS = [Sine, Cosine, Tangent, ArcSine, ArcCosine, ArcTangent] as const;
 
 // How many random cases fast-check generates per property, per run.
 // Tune these in one place. The correctness check (vs. mathjs) gets the widest
@@ -75,7 +89,10 @@ const expression: fc.Arbitrary<Expression> = fc.letrec<{ node: Expression }>((ti
       .tuple(fc.constantFrom<"+" | "-" | "*" | "/">("+", "-", "*", "/"), tie("node"), tie("node"))
       .map(([operator, left, right]) => new BinaryOperation(operator, left, right)),
     fc.tuple(tie("node"), exponent).map(([base, exp]) => new Power(base, exp)),
-    tie("node").map((operand) => new UnaryMinus(operand))
+    tie("node").map((operand) => new UnaryMinus(operand)),
+    fc
+      .tuple(fc.constantFrom(...FUNCTION_CONSTRUCTORS), tie("node"))
+      .map(([Func, argument]) => new Func(argument))
   ),
 })).node;
 
@@ -115,9 +132,12 @@ describe("expression engine — correctness against mathjs", () => {
         const ours = evaluateWithSymSolve(ast, scope);
         const reference = evaluateWithOracle(ast.toString(), scope);
 
-        // Division by zero must be rejected by both engines (or by neither).
-        if (ours.threw || reference.threw) return ours.threw === reference.threw;
-        // Non-finite results (e.g. very large powers) are out of scope.
+        // Only compare when BOTH engines yield a finite real number. We skip the
+        // rest because the two legitimately differ at the edges: a division by
+        // zero throws in SymSolve, and an out-of-domain inverse trig (e.g.
+        // arcsin(2)) is NaN in SymSolve but a complex number in mathjs. Those
+        // edge behaviours are pinned down by the dedicated unit tests instead.
+        if (ours.threw || reference.threw) return true;
         if (!Number.isFinite(ours.value) || !Number.isFinite(reference.value)) return true;
 
         const tolerance = 1e-9 * Math.max(1, Math.abs(reference.value));

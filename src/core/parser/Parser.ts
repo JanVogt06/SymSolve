@@ -6,6 +6,29 @@ import { Variable } from "../ast/nodes/Variable";
 import { BinaryOperation } from "../ast/nodes/BinaryOperation";
 import { UnaryMinus } from "../ast/nodes/UnaryMinus";
 import { Power } from "../ast/nodes/Power";
+import { Sine } from "../ast/nodes/functions/Sine";
+import { Cosine } from "../ast/nodes/functions/Cosine";
+import { Tangent } from "../ast/nodes/functions/Tangent";
+import { ArcSine } from "../ast/nodes/functions/ArcSine";
+import { ArcCosine } from "../ast/nodes/functions/ArcCosine";
+import { ArcTangent } from "../ast/nodes/functions/ArcTangent";
+
+/**
+ * Maps every recognised function name to a factory that wraps an argument in
+ * the matching AST node. Both the spelled-out names (arcsin) and the short
+ * forms (asin) are accepted as aliases for the same node.
+ */
+const FUNCTION_FACTORIES: Record<string, (argument: Expression) => Expression> = {
+  sin: (argument) => new Sine(argument),
+  cos: (argument) => new Cosine(argument),
+  tan: (argument) => new Tangent(argument),
+  arcsin: (argument) => new ArcSine(argument),
+  asin: (argument) => new ArcSine(argument),
+  arccos: (argument) => new ArcCosine(argument),
+  acos: (argument) => new ArcCosine(argument),
+  arctan: (argument) => new ArcTangent(argument),
+  atan: (argument) => new ArcTangent(argument),
+};
 
 /**
  * Parses a mathematical expression string into an AST.
@@ -17,7 +40,10 @@ import { Power } from "../ast/nodes/Power";
  *   term        =  factor ( ("*" | "/") factor )*
  *   factor      =  "-" factor | power
  *   power       =  primary ("^" factor)?          ← right-associative
- *   primary     =  Number | Identifier | "(" expression ")"
+ *   primary     =  Number
+ *               |  FunctionName "(" expression ")"
+ *               |  Identifier
+ *               |  "(" expression ")"
  *
  * Usage:
  *   const ast = Parser.parse("3 + 4 * x")
@@ -177,6 +203,19 @@ export class Parser {
 
     if (token.type === "Identifier") {
       this.advance();
+
+      // A known function name immediately followed by "(" is a function call,
+      // e.g. sin(x). Otherwise the identifier is an ordinary variable.
+      const factory = FUNCTION_FACTORIES[token.value];
+      if (factory && this.current().type === "LeftParen") {
+        this.advance(); // consume "("
+
+        /** The argument expression inside the function's parentheses. */
+        const argument = this.parseExpression();
+        this.expect("RightParen");
+        return factory(argument);
+      }
+
       return new Variable(token.value);
     }
 
