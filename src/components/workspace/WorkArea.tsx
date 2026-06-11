@@ -1,32 +1,35 @@
+import { Calculator, NotebookPen } from "lucide-react";
 import { Panel } from "@/components/layout/Panel";
-import { MODES, type Mode } from "@/components/layout/mode";
+
+/** The work-area surfaces that exist (graph mode has its own layout instead). */
+type WorkAreaVariant = "calculator" | "notebook";
 
 interface WorkAreaProps {
-  /** Active mode — decides the title and placeholder shown. */
-  mode: Mode;
+  /** Which surface to render. */
+  variant: WorkAreaVariant;
   /** Extra classes for sizing within the layout. */
   className?: string;
 }
 
-const PLACEHOLDER: Record<Mode, { title: string; hint: string }> = {
+const VARIANTS = {
   calculator: {
     title: "Rechner",
+    icon: Calculator,
     hint: "Hier entsteht das Eingabefeld für schnelle Berechnungen.",
   },
   notebook: {
     title: "Notebook",
+    icon: NotebookPen,
     hint: "Hier entsteht die Arbeitsfläche aus Zellen, die sich Definitionen merkt.",
   },
-};
+} as const;
 
 /**
- * The main work area. In this layout phase it only shows a mode-dependent
+ * The main work area. In this layout phase it only shows a variant-dependent
  * placeholder — the actual input surfaces come in later phases.
  */
-export function WorkArea({ mode, className }: WorkAreaProps) {
-  const descriptor = MODES.find((entry) => entry.id === mode) ?? MODES[0];
-  const Icon = descriptor.icon;
-  const { title, hint } = PLACEHOLDER[mode];
+export function WorkArea({ variant, className }: WorkAreaProps) {
+  const { title, icon: Icon, hint } = VARIANTS[variant];
 
   return (
     <Panel title={title} icon={Icon} className={className}>
