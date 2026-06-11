@@ -4,6 +4,7 @@ import { WorkArea } from "@/components/workspace/WorkArea";
 import { GraphPanel } from "@/components/plotter/GraphPanel";
 import { FunctionsPanel } from "@/components/plotter/FunctionsPanel";
 import { ContextPanel } from "@/components/panels/ContextPanel";
+import { HistoryPanel } from "@/components/panels/HistoryPanel";
 import { GraphProvider } from "@/graph/GraphProvider";
 import type { Mode } from "@/components/layout/mode";
 
@@ -11,8 +12,15 @@ import type { Mode } from "@/components/layout/mode";
 function ModeLayout({ mode }: { mode: Mode }) {
   switch (mode) {
     case "calculator":
-      // Just the calculator surface — no graph, no declarations.
-      return <WorkArea variant="calculator" className="min-h-0 flex-1" />;
+      // Calculator surface plus its own history — no graph, no declarations.
+      return (
+        <>
+          <WorkArea variant="calculator" className="min-h-0 flex-1" />
+          <aside className="flex min-h-0 flex-col gap-3 lg:w-80">
+            <HistoryPanel className="min-h-0 flex-1" />
+          </aside>
+        </>
+      );
 
     case "graph":
       // Focused plotting: large plot plus a list of functions to draw.

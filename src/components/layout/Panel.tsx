@@ -25,7 +25,7 @@ interface PanelProps {
 export function Panel({ title, icon: Icon, actions, children, className }: PanelProps) {
   return (
     <Card className={cn("gap-0 overflow-hidden py-0", className)}>
-      <CardHeader className="flex flex-row items-center gap-2 px-4 py-2.5">
+      <CardHeader className="flex h-11 flex-row items-center gap-2 px-4 py-0">
         <Icon className="size-4 text-muted-foreground" />
         <CardTitle className="text-sm">{title}</CardTitle>
         {actions ? <CardAction className="ml-auto self-center">{actions}</CardAction> : null}
